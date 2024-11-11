@@ -1,57 +1,34 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 type NumbersRequest struct {
-	Numbers []int32 `json:"numbers"`
+	Numbers []int `json:"numbers"`
 }
 
-type URLRequest struct {
-	URL string `json:"url"`
-}
-
-func sumNumbers(w http.ResponseWriter, r *http.Request) {
+func sumNumbers(c *gin.Context) {
 	var req NumbersRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	var sum int32
+	var sum int
 	for _, num := range req.Numbers {
 		sum += num
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`{"result": %d}`, sum)))
-}
-
-func processURL(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Could not read request body", http.StatusBadRequest)
-		return
-	}
-
-	url := string(body)
-	log.Printf("Received URL: %s", url)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`{"message": "URL received: %s"}`, url)))
+	c.JSON(http.StatusOK, gin.H{"result": sum})
 }
 
 func main() {
-	http.HandleFunc("/sum", sumNumbers)
-	http.HandleFunc("/url", processURL)
-
+	r := gin.Default()
+	r.POST("/", sumNumbers)
 	fmt.Println("Server is listening on port 8080...")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	r.Run(":8080")
 }
